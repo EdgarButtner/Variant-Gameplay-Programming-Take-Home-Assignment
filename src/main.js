@@ -1,145 +1,12 @@
 import Phaser from 'phaser';
 import { SpinePlugin } from '@esotericsoftware/spine-phaser-v4';
+import { GameScene } from './scenes/game-scene';
+import { GameStart } from './scenes/game-start';
+import { PreloadScene } from './scenes/preload-scene';
 
 /** Portrait 9:16 — same aspect as Variant games (e.g. 720×1280). */
 const VIEW_W = 720;
 const VIEW_H = 1280;
-
-/** Shared Variant man rig — see public/spine/man/animations.json & ANIMATIONS.md */
-const DEMO_WALK = 'Walk';
-const DEMO_JUMP = 'Jump';
-
-const res = await fetch('/spine/man/animations.json');
-const { animations } = await res.json();
-
-class HelloScene extends Phaser.Scene {
-  constructor() {
-    super({ key: 'HelloScene' });
-    this.hero = null;
-    this.walkSpeed = 200;
-    this.direction = 1;
-    this.currCombo= '';
-    this.currComboProgress = '';
-  }
-
-  preload() {
-    this.load.spineJson('man', '/spine/man/skeleton.json');
-    this.load.spineAtlas('manAtlas', '/spine/man/skeleton.atlas', true);
-  }
-
-  create() {
-    const { width, height } = this.scale;
-
-    this.add
-      .text(width / 2, 20, 'Hello world — shared man Spine walks (public/spine/man/)', {
-        fontSize: '14px',
-        color: '#eaeaea',
-        fontFamily: 'system-ui, sans-serif'
-      })
-      .setOrigin(0.5, 0);
-
-    this.add
-      .text(width / 2, 44, 'Gray silhouette = CDN placeholder base sheet; npm run copy-spine for real skin', {
-        fontSize: '11px',
-        color: '#8a9',
-        fontFamily: 'system-ui, sans-serif'
-      })
-      .setOrigin(0.5, 0);
-
-    this.hero = this.add.spine(width * 0.2, height * 0.72, 'man', 'manAtlas');
-    this.hero.setDepth(10);
-    this.hero.setScale(0.28);
-    this.hero.animationState.data.defaultMix = 0.15;
-    this.hero.animationState.setAnimation(0, DEMO_WALK, true);
-    this.hero.skeleton.scaleX = Math.abs(this.hero.skeleton.scaleX);
-
-    this.input.keyboard?.on('keydown-SPACE', () => {
-      this.hero.animationState.setAnimation(0, DEMO_JUMP, false);
-      this.hero.animationState.addAnimation(0, DEMO_WALK, true, 0);
-    });
-
-    this.currCombo = this.getNewCombo();
-
-    this.comboDisplayText = this.add
-      .text(width / 2, 1000, `Current Combo: ${this.currCombo}`, {
-        fontSize: 'bold 25px',
-        color: '#eaeaea',
-        fontFamily: 'system-ui, sans-serif',
-        rtl: true
-      })
-      .setOrigin(0.5, 0);
-
-    this.comboText = this.add
-      .text(width / 2, 1050, "", {
-        fontSize: 'bold 35px',
-        color: '#eaeaea',
-        fontFamily: 'system-ui, sans-serif',
-        rtl: true
-      })
-      .setOrigin(0.5, 0);
-
-    this.input.keyboard?.on('keydown', (event) => { 
-      console.log(`Key down: ${event.key}`);
-
-      this.currComboProgress += event.key.toUpperCase();
-      if (this.currComboProgress.length > this.currCombo.length) {
-        this.currComboProgress = '';
-      }
-      this.comboText.setText(this.currComboProgress);
-      //this.renderText(`${currComboProgress} + ${event.key}`);
-    });
-
-    this.input.keyboard.createCombo(this.currCombo, { resetOnMatch: true, maxKeyDelay: 1000 });
-    this.input.keyboard?.on('keycombomatch', (event) => {
-      console.log(`Key combo matched: ${event.combo}`);
-
-      this.currComboProgress = '';
-      this.comboText.setText(this.currComboProgress);
-
-      this.currCombo = this.getNewCombo();
-      this.resetComboDisplay();
-    });
-
-
-
-
-
-    this.add
-      .text(width / 2, height - 36, 'Animations: public/spine/man/animations.json & ANIMATIONS.md', {
-        fontSize: '16px',
-        color: '#889'
-      })
-      .setOrigin(0.5, 1);
-  }
-
-  update(_, deltaMs) {
-    if (!this.hero) return; 
-    const dt = deltaMs / 1000;
-    const w = this.scale.width;
-    //this.hero.x += this.walkSpeed * this.direction * dt;
-
-    const margin = 72;
-    if (this.hero.x > w - margin) {
-      this.hero.x = w - margin;
-      this.direction = -1;
-      this.hero.skeleton.scaleX = -Math.abs(this.hero.skeleton.scaleX);
-    } else if (this.hero.x < margin) {
-      this.hero.x = margin;
-      this.direction = 1;
-      this.hero.skeleton.scaleX = Math.abs(this.hero.skeleton.scaleX);
-    }
-  }
-
-  // Gets a new word combo from the animations list and converts it to uppercase 
-  getNewCombo() {
-    const randomAni = animations[Math.floor(Math.random() * animations.length)].toUpperCase();
-    return randomAni;
-  }
-
-  resetComboDisplay() {
-    this.comboDisplayText.setText(`Current Combo: ${this.currCombo}`);
-  }
-}  
 
 const config = {
   type: Phaser.WEBGL,
@@ -147,7 +14,7 @@ const config = {
   width: VIEW_W,
   height: VIEW_H,
   backgroundColor: '#3d2d44',
-  scene: [HelloScene],
+  scene: [PreloadScene, GameStart, GameScene],
   plugins: {
     scene: [{ key: 'SpinePlugin', plugin: SpinePlugin, mapping: 'spine' }]
   },
