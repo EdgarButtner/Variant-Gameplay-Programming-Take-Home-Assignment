@@ -18,6 +18,7 @@ class HelloScene extends Phaser.Scene {
     this.hero = null;
     this.walkSpeed = 200;
     this.direction = 1;
+    this.currCombo= '';
     this.currComboProgress = '';
   }
 
@@ -57,20 +58,20 @@ class HelloScene extends Phaser.Scene {
       this.hero.animationState.addAnimation(0, DEMO_WALK, true, 0);
     });
 
-    const randomAni = animations[Math.floor(Math.random() * animations.length)];
+    this.currCombo = this.getNewCombo();
 
-    var comboDisplayText = this.add
-      .text(width / 2, 100, `Current Combo: ${randomAni}`, {
-        fontSize: '14px',
+    this.comboDisplayText = this.add
+      .text(width / 2, 1000, `Current Combo: ${this.currCombo}`, {
+        fontSize: 'bold 25px',
         color: '#eaeaea',
         fontFamily: 'system-ui, sans-serif',
         rtl: true
       })
       .setOrigin(0.5, 0);
 
-    var comboText = this.add
-      .text(width / 2, 120, "", {
-        fontSize: '14px',
+    this.comboText = this.add
+      .text(width / 2, 1050, "", {
+        fontSize: 'bold 35px',
         color: '#eaeaea',
         fontFamily: 'system-ui, sans-serif',
         rtl: true
@@ -79,16 +80,24 @@ class HelloScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown', (event) => { 
       console.log(`Key down: ${event.key}`);
+
       this.currComboProgress += event.key.toUpperCase();
-      comboText.setText(this.currComboProgress);
+      if (this.currComboProgress.length > this.currCombo.length) {
+        this.currComboProgress = '';
+      }
+      this.comboText.setText(this.currComboProgress);
       //this.renderText(`${currComboProgress} + ${event.key}`);
     });
 
-    this.input.keyboard.createCombo(randomAni, { resetOnMatch: true, maxKeyDelay: 1000 });
+    this.input.keyboard.createCombo(this.currCombo, { resetOnMatch: true, maxKeyDelay: 1000 });
     this.input.keyboard?.on('keycombomatch', (event) => {
       console.log(`Key combo matched: ${event.combo}`);
+
       this.currComboProgress = '';
-      comboText.setText(this.currComboProgress);
+      this.comboText.setText(this.currComboProgress);
+
+      this.currCombo = this.getNewCombo();
+      this.resetComboDisplay();
     });
 
 
@@ -104,7 +113,7 @@ class HelloScene extends Phaser.Scene {
   }
 
   update(_, deltaMs) {
-    if (!this.hero) return;
+    if (!this.hero) return; 
     const dt = deltaMs / 1000;
     const w = this.scale.width;
     //this.hero.x += this.walkSpeed * this.direction * dt;
@@ -121,9 +130,16 @@ class HelloScene extends Phaser.Scene {
     }
   }
 
+  // Gets a new word combo from the animations list and converts it to uppercase 
   getNewCombo() {
+    const randomAni = animations[Math.floor(Math.random() * animations.length)].toUpperCase();
+    return randomAni;
   }
-}
+
+  resetComboDisplay() {
+    this.comboDisplayText.setText(`Current Combo: ${this.currCombo}`);
+  }
+}  
 
 const config = {
   type: Phaser.WEBGL,
