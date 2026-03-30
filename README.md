@@ -1,5 +1,7 @@
 # Please see DEVLOG.md for my Dev Log!
 
+**→ See:** **(./DEVLOG.md)** to view my DEVLOG.
+
 # Variant — Gameplay programming take-home (starter)
 
 **→ Candidates:** open **[CANDIDATE_INSTRUCTIONS.md](./CANDIDATE_INSTRUCTIONS.md)** first.

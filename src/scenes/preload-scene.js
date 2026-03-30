@@ -21,6 +21,6 @@ export class PreloadScene extends Phaser.Scene {
   */
   create() {
     console.log('PreloadScene created, moving to GameScene');
-    this.scene.start(SCENE_KEY.GAME_SCENE);
+    this.scene.start(SCENE_KEY.GAME_START);
   }
 }

@@ -133,7 +133,10 @@ export class GameScene extends Phaser.Scene {
     Store the timer so we can clean it up on scene shutdown
     */
     this._progressBarTimer = this.startProgressBarTimer();
-    this.events.once('shutdown', () => this._progressBarTimer?.remove());
+    this.events.once('shutdown', () => {
+      this._progressBarTimer?.remove();
+      this.music?.stop();
+    });
   }
 
   update() {
