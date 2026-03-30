@@ -1,6 +1,6 @@
 # Please see DEVLOG.md for my Dev Log!
 
-**→ See:** **(./DEVLOG.md)** to view my DEVLOG.
+**→ See:** **[DEVLOG.md](./DEVLOG.md)** to view my DEVLOG.
 
 # Variant — Gameplay programming take-home (starter)
 
