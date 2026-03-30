@@ -13,6 +13,7 @@ export class PreloadScene extends Phaser.Scene {
   preload() {
     this.load.spineJson('man', '/spine/man/skeleton.json');
     this.load.spineAtlas('manAtlas', '/spine/man/skeleton.atlas', true);
+    this.load.audio('mainMusic', '/audio/MainMusic.mp3');
   }
 
   create() {
