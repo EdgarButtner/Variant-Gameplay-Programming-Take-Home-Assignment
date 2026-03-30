@@ -1,8 +1,15 @@
 import Phaser from 'phaser';
-import { SpinePlugin } from '@esotericsoftware/spine-phaser-v4';
+import { SCENE_KEY } from '../common/scene-key';
+import { WordManager } from '../common/word-manager';
 
-const res = await fetch('/spine/man/animations.json');
-const { animations } = await res.json();
+const TEXT_STYLE = {
+  fontSize: 'bold 35px',
+  color: '#eaeaea',
+  fontFamily: 'system-ui, sans-serif',
+  rtl: true,
+  stroke: '#000000',
+  strokeThickness: 4,
+};
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -11,154 +18,140 @@ export class GameScene extends Phaser.Scene {
     this.walkSpeed = 200;
     this.direction = 1;
     this.currComboProgress = '';
-    this.currWordDelay = 3000;
-    this.wordQueue = [];
-    this.wordDisplayQueue = [];
-    this.animationQueue = [];
+    this.currScore = 0;
+    this.currLevel = 1;
+    this.progressBarCompletion = 50;
+    this.progressBarWidth = 300;
+    this.gameOver = false;
+    this.words = null;
+  }
 
+  /*
+  Resetting state here ensures a clean slate regardless of how the previous run ended.
+  */
+  init() {
+    this.hero = null;
+    this.words = null;
+    this.currComboProgress = '';
+    this.currScore = 0;
+    this.currLevel = 1;
+    this.progressBarCompletion = 50;
+    this.gameOver = false;
   }
 
   create() {
     console.log('GameScene created');
     const { width, height } = this.scale;
+    const animations = this.cache.json.get('animations').animations;
 
     /*
-    Adding music to scene
+    Word manager owns the three parallel queues and the spawn loop
+    */
+    this.words = new WordManager(this, animations);
+
+    /*
+    Music
     */
     this.music = this.sound.add('mainMusic', { loop: false, volume: 1 });
 
     /*
-    Create the first word and then start the word spawner 
+    Hero
     */
-    this.initialWord();
-    this.wordSpawner();
+    this.hero = this.add.spine(width / 2, height * 0.72, 'man', 'manAtlas');
+    this.hero.setDepth(10);
+    this.hero.setScale(0.28);
+    this.hero.animationState.data.defaultMix = 0.15;
+    this.hero.animationState.setAnimation(0, 'Dance', true);
+    this.hero.skeleton.scaleX = Math.abs(this.hero.skeleton.scaleX);
+
+    this.words.start();
 
     /*
-    The text displaying the current word to type
+    HUD text
     */
     this.displayCurrComboText = this.add
-      .text(width / 2, 1000, `Current Combo \n ${this.wordQueue[0]}`, {
-        fontSize: 'bold 35px',
-        color: '#eaeaea',
-        fontFamily: 'system-ui, sans-serif',
-        align: 'center',
-        rtl: true
-      })
+      .text(width / 2, 1000, this.words.current, TEXT_STYLE)
       .setOrigin(0.5, 0)
-      .setAlpha(0.5);
-      
-    /*
-    Progress toward current word
-    */
+      .setAlpha(0.3);
+
     this.comboText = this.add
-      .text(width / 2, 1050, '', {
-        fontSize: 'bold 35px',
-        color: '#eaeaea',
-        fontFamily: 'system-ui, sans-serif',
-        rtl: true
-      })
-      .setOrigin(0.5, 0);
+      .text(width / 2 - this.displayCurrComboText.width / 2, 1000, '', TEXT_STYLE)
+      .setOrigin(0, 0);
+
+    this.scoreText = this.add
+      .text(135, 15, `Score: ${this.currScore}`, { ...TEXT_STYLE, fontSize: '35px' });
 
     /*
-    On a key press add the key to the current combo progress and check if it matches the start of the current word combo.
-    If it does not match play an error and reset.
+    Progress bar
+    */
+    this.progressBarBackground = this.add
+      .rectangle(width / 2 - 150, height * 0.03 - 10, this.progressBarWidth, 20, '#eaeaea')
+      .setAlpha(0.5)
+      .setOrigin(0, 0);
+
+    this.progressBar = this.add
+      .rectangle(width / 2 - 150, height * 0.03 - 10, this.progressBarCompletion, 20, '#eaeaea')
+      .setOrigin(0, 0);
+
+    this.progressBarLabel = this.add
+      .text(width / 2, height * 0.03, `Level ${this.currLevel}`, { ...TEXT_STYLE, fontSize: '20px' })
+      .setOrigin(0.5, 1);
+
+    /*
+    Keyboard input
     */
     this.input.keyboard?.on('keydown', (event) => {
       const key = event.key.toUpperCase();
 
       if (!this.music.isPlaying) this.music.play();
-
       if (key.length !== 1) return;
 
       this.currComboProgress += key;
 
-      if (this.currComboProgress.length > this.wordQueue[0].length || !this.wordQueue[0].startsWith(this.currComboProgress)) {
+      if (this.currComboProgress.length > this.words.current.length || !this.words.current.startsWith(this.currComboProgress)) {
         this.currComboProgress = '';
         this.playError();
+        this.progressBarCompletion -= this.progressBarWidth / 5;
       }
+
       this.comboText.setText(this.currComboProgress);
 
-      if (this.currComboProgress === this.wordQueue[0]) {
-        console.log(`Key combo matched: ${this.currComboProgress}`);
-        this.hero.animationState.setAnimation(0, this.animationQueue[0], false);
-        this.resetAll();
-        this.hero.animationState.addAnimation(0, 'Idle', true, 0);
+      if (this.currComboProgress === this.words.current) {
+        this.updateScore();
+        this.progressBarCompletion += this.progressBarWidth / 5;
+        this.hero.animationState.setAnimation(0, this.words.currentAnimation, false);
+        this.hero.animationState.addAnimation(0, 'Dance', true, 0);
+        this.words.shift();
+        this.currComboProgress = '';
+        this.comboText.setText('');
+        this.displayCurrComboText.setText(this.words.current ?? '');
+        this.comboText.x = this.scale.width / 2 - this.displayCurrComboText.width / 2;
       }
     });
 
-
-    // Hero Creation
-    this.hero = this.add.spine(width / 2, height * 0.72, 'man', 'manAtlas');
-    this.hero.setDepth(10);
-    this.hero.setScale(0.28);
-    this.hero.animationState.data.defaultMix = 0.15;
-    this.hero.animationState.setAnimation(0, 'Idle', true);
-    this.hero.skeleton.scaleX = Math.abs(this.hero.skeleton.scaleX);
-
+    /*
+    Store the timer so we can clean it up on scene shutdown
+    */
+    this._progressBarTimer = this.startProgressBarTimer();
+    this.events.once('shutdown', () => this._progressBarTimer?.remove());
   }
 
-  update(_, deltaMs) {
-    if (!this.hero) return; 
-    const dt = deltaMs / 1000;
-    const w = this.scale.width;
+  update() {
+    if (this.gameOver) this.scene.start(SCENE_KEY.GAME_END);
+    if (!this.hero) return;
 
-    const margin = 72;
-    if (this.hero.x > w - margin) {
-      this.hero.x = w - margin;
-      this.direction = -1;
-      this.hero.skeleton.scaleX = -Math.abs(this.hero.skeleton.scaleX);
-    } else if (this.hero.x < margin) {
-      this.hero.x = margin;
-      this.direction = 1;
-      this.hero.skeleton.scaleX = Math.abs(this.hero.skeleton.scaleX);
-    }
+    this.words.update(this.comboText.y + 5, () => {
+      this.playError();
+      this.progressBarCompletion -= this.progressBarWidth / 5;
+    });
 
-    /*
-    For each falling word increase its y value or play an error and destroy it
-    if below desired range / combo text
-    */
-    for (let i = this.wordDisplayQueue.length - 1; i >= 0; i--) {
-      const textObj = this.wordDisplayQueue[i];
-      if (textObj.y < this.comboText.y + 5) {
-        textObj.y += 1;
-      } else {
-        textObj.destroy();
-        this.playError();
-        this.wordQueue.splice(i, 1);
-        this.animationQueue.splice(i, 1);
-        this.wordDisplayQueue.splice(i, 1);
-      }
-    }
-
-    // Continually speed up the game music and increase the rate of falling words
     if (this.music?.isPlaying && this.music.rate < 2) {
-      console.log(`Increasing music speed: ${this.music.rate.toFixed(2)}`);
       this.music.rate += 0.00001;
     }
-
-    // Reduce the delay between words being spawned
-    if (this.currWordDelay > 500) {
-      this.currWordDelay -= 0.5;
-    }
   }
 
   /*
-  Gets a new word combo from the animations list and converts it to uppercase 
-  */
-  getNewWord() {
-    const randomAni = animations[Math.floor(Math.random() * animations.length)];
-    return randomAni
-  }
-
-  /*
-  Resets the current combo display text to show the next word in the queue.
-  */
-  resetComboDisplay() {
-    this.displayCurrComboText.setText(`Current Combo \n ${this.wordQueue[0]}`);
-  }
-
-  /*
-  Shakes the screen and animates the current combo display text to indicate an error,
+  Shakes the screen and squishes the combo label to signal a mistake.
   */
   playError() {
     this.cameras.main.shake(100, 0.01);
@@ -169,68 +162,47 @@ export class GameScene extends Phaser.Scene {
       duration: 100,
       ease: Phaser.Math.Easing.Quadratic.InOut,
       yoyo: true,
-      repeat: 2
+      repeat: 2,
     });
-    // Then some error sound
-  }
-
-  /*  
-  Resets the current combo progress, destroys the current word display, 
-  removes the current word and animation from their respective queues, 
-  and updates the combo display text to show the next word in the queue
-  */ 
-  resetAll() {
-    this.currComboProgress = '';
-    if (this.wordDisplayQueue[0]) {
-      this.wordDisplayQueue[0].destroy();
-      this.wordDisplayQueue.shift();
-    }
-    this.wordQueue.shift();
-    this.animationQueue.shift();
-    this.resetComboDisplay();
-  }
- 
-  /*
-  Produces an initial word and text object to fall down the 
-  screen at the start of the game and adds it to each queue
-  */
-  initialWord() {
-    this.word = this.getNewWord();
-
-    this.wordDisplay = this.add.text(this.scale.width / 2, 0, `${this.word.toUpperCase()}`, {
-      fontSize: 'bold 35px',
-      color: '#eaeaea',
-      fontFamily: 'system-ui, sans-serif',
-      rtl: true
-    }).setOrigin(0.5, 0);
-
-    this.wordQueue.push(this.word.toUpperCase());
-    this.wordDisplayQueue.push(this.wordDisplay);
-    this.animationQueue.push(this.word);
   }
 
   /*
-  Repeatedly add words to each queue and create a text object for each 
-  word that falls down the screen. The delay between each word is determined 
-  by currWordDelay, which decreases over time to speed up the game
+  Adds currLevel to the score and refreshes the score label.
   */
-  wordSpawner() {
-    const spawnWord = () => {
-      this.word = this.getNewWord();
+  updateScore() {
+    this.scoreText.setText(`Score: ${this.currScore += this.currLevel}`);
+  }
 
-      this.wordDisplay = this.add.text(this.scale.width / 2, 0, `${this.word.toUpperCase()}`, {
-        fontSize: 'bold 35px',
-        color: '#eaeaea',
-        fontFamily: 'system-ui, sans-serif',
-        rtl: true
-      }).setOrigin(0.5, 0);
+  /*
+  Ticks the progress bar every 100 ms. Fills toward next level on success,
+  drains on missed words/errors. Level up/down at the boundaries.
+  Returns the TimerEvent so the caller can cancel it on shutdown.
+  */
+  startProgressBarTimer() {
+    if (!this.progressBar) console.error('Progress bar not initialized');
 
-      this.wordQueue.push(this.word.toUpperCase());
-      this.wordDisplayQueue.push(this.wordDisplay);
-      this.animationQueue.push(this.word);
-
-      this.time.delayedCall(this.currWordDelay, spawnWord);
-    };
-    this.time.delayedCall(this.currWordDelay, spawnWord);
+    return this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        switch (true) {
+          case this.progressBarCompletion <= 0 && this.currLevel > 1:
+            this.currLevel--;
+            this.progressBarCompletion = 0;
+            break;
+          case this.progressBarCompletion <= 0 && this.currLevel <= 1:
+            this.gameOver = true;
+            break;
+          case this.progressBarCompletion >= this.progressBarWidth:
+            this.progressBarCompletion = 1;
+            this.currLevel++;
+            this.progressBarLabel.setText(`Level ${this.currLevel}`);
+            break;
+          default:
+            this.progressBarCompletion += 2 * this.currLevel;
+        }
+        this.progressBar.setSize(this.progressBarCompletion, 20);
+      },
+    });
   }
 }

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SpinePlugin } from '@esotericsoftware/spine-phaser-v4';
+import { SCENE_KEY } from '../common/scene-key';
 
 export class GameStart extends Phaser.Scene {
   constructor() {
@@ -18,9 +18,12 @@ export class GameStart extends Phaser.Scene {
     this.hero.setDepth(10);
     this.hero.setScale(0.28);
     this.hero.animationState.data.defaultMix = 0.15;
-    this.hero.animationState.setAnimation(0, 'Idle', true);
+    this.hero.animationState.setAnimation(0, 'Wave', true);
     this.hero.skeleton.scaleX = Math.abs(this.hero.skeleton.scaleX);
 
+    /*
+    Game Start Text and Button
+    */
     this.title = this.add
       .text (width / 2, height * 0.15, 'Welcome to \n Combo Hero!', {
         fontSize: 'bold 70px comic sans-serif',
@@ -38,7 +41,7 @@ export class GameStart extends Phaser.Scene {
 
     this.button.setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
-        this.scene.start('GameScene');
+        this.scene.start(SCENE_KEY.GAME_SCENE);
       });
   }
 }

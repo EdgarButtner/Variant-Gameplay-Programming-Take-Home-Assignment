@@ -1,3 +1,5 @@
+# Please see DEVLOG.md for my Dev Log!
+
 # Variant — Gameplay programming take-home (starter)
 
 **→ Candidates:** open **[CANDIDATE_INSTRUCTIONS.md](./CANDIDATE_INSTRUCTIONS.md)** first.
